@@ -1,22 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { TextStyle } from '../types';
 
 const STORAGE_KEY = 'batch-text-insertion-state';
 
 interface PersistedState {
   names: string[];
-  lastTextStyle?: {
-    fontFamily: string;
-    fontSize: number;
-    fontWeight: string;
-    fontStyle: string;
-    color: string;
-    textDecoration: string;
-    textTransform: string;
-    letterSpacing: number;
-    lineHeight: number;
-    textShadow: string;
-    opacity: number;
-  };
+  lastTextStyle?: TextStyle;
 }
 
 /**
