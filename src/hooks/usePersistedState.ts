@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { TextStyle } from '../types';
+import type { TextStyle, TextArea } from '../types';
 
 const STORAGE_KEY = 'batch-text-insertion-state';
 
-interface PersistedState {
+export interface PersistedState {
   names: string[];
   lastTextStyle?: TextStyle;
+  textAreas?: TextArea[];
+  imageDataUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
 /**

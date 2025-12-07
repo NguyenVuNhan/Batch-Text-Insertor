@@ -40,8 +40,19 @@ function App() {
   // Load initial state from localStorage
   const initialState = loadPersistedState();
 
-  const [image, setImage] = useState<UploadedImage | null>(null);
-  const [textAreas, setTextAreas] = useState<TextArea[]>([]);
+  const [image, setImage] = useState<UploadedImage | null>(() => {
+    // Restore image from localStorage if available
+    if (initialState?.imageDataUrl && initialState?.imageWidth && initialState?.imageHeight) {
+      return {
+        file: new File([], 'restored-image'),
+        dataUrl: initialState.imageDataUrl,
+        width: initialState.imageWidth,
+        height: initialState.imageHeight,
+      };
+    }
+    return null;
+  });
+  const [textAreas, setTextAreas] = useState<TextArea[]>(initialState?.textAreas || []);
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [names, setNames] = useState<string[]>(initialState?.names || []);
   const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
@@ -50,14 +61,18 @@ function App() {
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [previewName] = useState('Preview Text');
 
-  // Auto-save names to localStorage when they change
+  // Auto-save state to localStorage
   useEffect(() => {
     const currentState = loadPersistedState() || { names: [] };
     savePersistedState({
       ...currentState,
       names,
+      textAreas,
+      imageDataUrl: image?.dataUrl,
+      imageWidth: image?.width,
+      imageHeight: image?.height,
     });
-  }, [names]);
+  }, [names, textAreas, image]);
 
   // Auto-save last text style when it changes
   useEffect(() => {
@@ -75,7 +90,15 @@ function App() {
 
   const handleImageUpload = useCallback((uploadedImage: UploadedImage) => {
     setImage(uploadedImage);
-    setTextAreas([]);
+    // Only clear text areas if it's a new image (different dimensions)
+    setTextAreas((prevAreas) => {
+      const currentState = loadPersistedState();
+      if (currentState?.imageWidth === uploadedImage.width && 
+          currentState?.imageHeight === uploadedImage.height) {
+        return prevAreas; // Keep existing areas if same dimensions
+      }
+      return []; // Clear areas for new image
+    });
     setSelectedAreaId(null);
     setGeneratedImages([]);
   }, []);
@@ -85,6 +108,15 @@ function App() {
     setTextAreas([]);
     setSelectedAreaId(null);
     setGeneratedImages([]);
+    // Clear persisted image data
+    const currentState = loadPersistedState() || { names: [] };
+    savePersistedState({
+      ...currentState,
+      imageDataUrl: undefined,
+      imageWidth: undefined,
+      imageHeight: undefined,
+      textAreas: undefined,
+    });
   }, []);
 
   const handleStyleChange = useCallback((areaId: string, styleUpdates: Partial<TextStyle>) => {

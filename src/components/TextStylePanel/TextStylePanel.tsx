@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   TextField,
@@ -25,7 +25,7 @@ import {
   Delete,
 } from '@mui/icons-material';
 import type { TextArea, TextStyle, CustomFont } from '../../types';
-import { getSystemFonts } from '../../utils';
+import { getSystemFonts, getVietnameseFonts, getOtherGoogleFonts, loadGoogleFont } from '../../utils';
 
 interface TextStylePanelProps {
   selectedArea: TextArea | null;
@@ -34,12 +34,39 @@ interface TextStylePanelProps {
   onDeleteArea: (areaId: string) => void;
 }
 
+// Load all Google Fonts once when the module loads
+const vietnameseFonts = getVietnameseFonts();
+const otherGoogleFonts = getOtherGoogleFonts();
+const allGoogleFonts = [...vietnameseFonts, ...otherGoogleFonts];
+let fontsLoadingPromise: Promise<void> | null = null;
+
+function loadAllGoogleFonts(): Promise<void> {
+  if (fontsLoadingPromise) return fontsLoadingPromise;
+  
+  fontsLoadingPromise = Promise.all(
+    allGoogleFonts.map(font => loadGoogleFont(font).catch(() => {
+      // Ignore individual font load failures
+    }))
+  ).then(() => {});
+  
+  return fontsLoadingPromise;
+}
+
 export const TextStylePanel: React.FC<TextStylePanelProps> = ({
   selectedArea,
   customFonts,
   onStyleChange,
   onDeleteArea,
 }) => {
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  // Load all Google Fonts on mount
+  useEffect(() => {
+    loadAllGoogleFonts().then(() => {
+      setFontsLoaded(true);
+    });
+  }, []);
+
   if (!selectedArea) {
     return (
       <Paper sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
@@ -49,10 +76,15 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
   }
 
   const { style } = selectedArea;
-  const allFonts = [...getSystemFonts(), ...customFonts.map((f) => f.name)];
+  const systemFonts = getSystemFonts();
+  const customFontNames = customFonts.map((f) => f.name);
 
   const handleStyleChange = (updates: Partial<TextStyle>) => {
     onStyleChange(selectedArea.id, updates);
+  };
+
+  const handleFontChange = (fontFamily: string) => {
+    handleStyleChange({ fontFamily });
   };
 
   const handleFormatToggle = (format: 'bold' | 'italic') => {
@@ -71,6 +103,26 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
     handleStyleChange({
       textDecoration: style.textDecoration === decoration ? 'none' : decoration,
     });
+  };
+
+  // Convert font weight to number for slider
+  const fontWeightValue = style.fontWeight === 'normal' ? 400 : 
+    style.fontWeight === 'bold' ? 700 : 
+    parseInt(style.fontWeight as string) || 400;
+
+  const getFontWeightLabel = (weight: number): string => {
+    const labels: Record<number, string> = {
+      100: 'Thin',
+      200: 'Extra Light',
+      300: 'Light',
+      400: 'Normal',
+      500: 'Medium',
+      600: 'Semi Bold',
+      700: 'Bold',
+      800: 'Extra Bold',
+      900: 'Black',
+    };
+    return labels[weight] || 'Normal';
   };
 
   return (
@@ -96,10 +148,54 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
             <Select
               value={style.fontFamily}
               label="Font Family"
-              onChange={(e) => handleStyleChange({ fontFamily: e.target.value })}
+              onChange={(e) => handleFontChange(e.target.value)}
             >
-              {allFonts.map((font) => (
+              {/* Custom Fonts */}
+              {customFontNames.length > 0 && (
+                <MenuItem disabled sx={{ fontWeight: 'bold', opacity: 1 }}>
+                  — Custom Fonts —
+                </MenuItem>
+              )}
+              {customFontNames.map((font) => (
                 <MenuItem key={font} value={font} style={{ fontFamily: font }}>
+                  {font}
+                </MenuItem>
+              ))}
+              
+              {/* System Fonts */}
+              <MenuItem disabled sx={{ fontWeight: 'bold', opacity: 1 }}>
+                — System Fonts —
+              </MenuItem>
+              {systemFonts.map((font) => (
+                <MenuItem key={font} value={font} style={{ fontFamily: font }}>
+                  {font}
+                </MenuItem>
+              ))}
+              
+              {/* Vietnamese Fonts */}
+              <MenuItem disabled sx={{ fontWeight: 'bold', opacity: 1, color: 'success.main' }}>
+                — Vietnamese Support ✓ —
+              </MenuItem>
+              {vietnameseFonts.map((font) => (
+                <MenuItem 
+                  key={font} 
+                  value={font} 
+                  style={{ fontFamily: fontsLoaded ? font : 'inherit' }}
+                >
+                  {font}
+                </MenuItem>
+              ))}
+              
+              {/* Other Google Fonts */}
+              <MenuItem disabled sx={{ fontWeight: 'bold', opacity: 1 }}>
+                — Other Google Fonts —
+              </MenuItem>
+              {otherGoogleFonts.map((font) => (
+                <MenuItem 
+                  key={font} 
+                  value={font} 
+                  style={{ fontFamily: fontsLoaded ? font : 'inherit' }}
+                >
                   {font}
                 </MenuItem>
               ))}
@@ -107,41 +203,19 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
           </FormControl>
         </Grid>
 
-        {/* Font Size */}
+        {/* Font Weight Slider */}
         <Grid size={12}>
           <Typography variant="body2" gutterBottom>
-            Font Size: {style.fontSize}px
+            Font Weight: {fontWeightValue} - {getFontWeightLabel(fontWeightValue)}
           </Typography>
           <Slider
-            value={style.fontSize}
-            min={8}
-            max={200}
-            onChange={(_, value) => handleStyleChange({ fontSize: value as number })}
+            value={fontWeightValue}
+            min={100}
+            max={900}
+            step={100}
+            marks
+            onChange={(_, value) => handleStyleChange({ fontWeight: String(value) as TextStyle['fontWeight'] })}
           />
-        </Grid>
-
-        {/* Font Weight */}
-        <Grid size={12}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Font Weight</InputLabel>
-            <Select
-              value={style.fontWeight}
-              label="Font Weight"
-              onChange={(e) => handleStyleChange({ fontWeight: e.target.value as TextStyle['fontWeight'] })}
-            >
-              <MenuItem value="normal">Normal</MenuItem>
-              <MenuItem value="bold">Bold</MenuItem>
-              <MenuItem value="100">100 - Thin</MenuItem>
-              <MenuItem value="200">200 - Extra Light</MenuItem>
-              <MenuItem value="300">300 - Light</MenuItem>
-              <MenuItem value="400">400 - Normal</MenuItem>
-              <MenuItem value="500">500 - Medium</MenuItem>
-              <MenuItem value="600">600 - Semi Bold</MenuItem>
-              <MenuItem value="700">700 - Bold</MenuItem>
-              <MenuItem value="800">800 - Extra Bold</MenuItem>
-              <MenuItem value="900">900 - Black</MenuItem>
-            </Select>
-          </FormControl>
         </Grid>
 
         {/* Quick Format Buttons */}
@@ -150,7 +224,7 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
             <ToggleButtonGroup size="small">
               <ToggleButton
                 value="bold"
-                selected={style.fontWeight === 'bold' || parseInt(style.fontWeight as string) >= 700}
+                selected={fontWeightValue >= 700}
                 onClick={() => handleFormatToggle('bold')}
               >
                 <FormatBold />
@@ -216,23 +290,6 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
           />
         </Grid>
 
-        {/* Text Transform */}
-        <Grid size={12}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Text Transform</InputLabel>
-            <Select
-              value={style.textTransform}
-              label="Text Transform"
-              onChange={(e) => handleStyleChange({ textTransform: e.target.value as TextStyle['textTransform'] })}
-            >
-              <MenuItem value="none">None</MenuItem>
-              <MenuItem value="uppercase">UPPERCASE</MenuItem>
-              <MenuItem value="lowercase">lowercase</MenuItem>
-              <MenuItem value="capitalize">Capitalize</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-
         {/* Letter Spacing */}
         <Grid size={12}>
           <Typography variant="body2" gutterBottom>
@@ -257,23 +314,6 @@ export const TextStylePanel: React.FC<TextStylePanelProps> = ({
             max={3}
             step={0.1}
             onChange={(_, value) => handleStyleChange({ lineHeight: value as number })}
-          />
-        </Grid>
-
-        <Grid size={12}>
-          <Divider />
-        </Grid>
-
-        {/* Text Shadow */}
-        <Grid size={12}>
-          <TextField
-            fullWidth
-            size="small"
-            label="Text Shadow (CSS format)"
-            placeholder="2px 2px 4px #000000"
-            value={style.textShadow === 'none' ? '' : style.textShadow}
-            onChange={(e) => handleStyleChange({ textShadow: e.target.value || 'none' })}
-            helperText="Format: offsetX offsetY blur color"
           />
         </Grid>
       </Grid>
