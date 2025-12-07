@@ -26,7 +26,7 @@ interface DragState {
   resizeHandle: string | null;
 }
 
-const HANDLE_SIZE = 10;
+const HANDLE_SIZE = 4;
 const MIN_AREA_SIZE = 20; // Minimum 20px for usability, text will auto-scale
 
 export const ImageCanvas: React.FC<ImageCanvasProps> = ({
@@ -92,7 +92,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
         };
 
         // Draw area rectangle
-        ctx.strokeStyle = selectedAreaId === area.id ? '#1976d2' : '#666';
+        ctx.strokeStyle = selectedAreaId === area.id ? 'rgba(25, 118, 210, 0.5)' : 'rgba(102, 102, 102, 0.4)';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(scaledArea.x, scaledArea.y, scaledArea.width, scaledArea.height);
@@ -109,7 +109,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
 
       // Draw current selection rectangle
       if (currentRect) {
-        ctx.strokeStyle = '#1976d2';
+        ctx.strokeStyle = 'rgba(25, 118, 210, 0.1)';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
@@ -120,7 +120,7 @@ export const ImageCanvas: React.FC<ImageCanvasProps> = ({
   }, [image, textAreas, selectedAreaId, scale, currentRect, previewName]);
 
   const drawResizeHandles = (ctx: CanvasRenderingContext2D, area: { x: number; y: number; width: number; height: number }) => {
-    ctx.fillStyle = '#1976d2';
+    ctx.fillStyle = 'rgba(25, 118, 210, 0.5)';
     const handles = getResizeHandles(area);
     Object.values(handles).forEach((handle) => {
       ctx.fillRect(handle.x, handle.y, HANDLE_SIZE, HANDLE_SIZE);
