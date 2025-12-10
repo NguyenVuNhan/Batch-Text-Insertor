@@ -207,6 +207,11 @@ export async function generateImages(
 ): Promise<{ name: string; dataUrl: string; blob: Blob }[]> {
   const results: { name: string; dataUrl: string; blob: Blob }[] = [];
   
+  // Detect the original image format
+  const isJpeg = imageDataUrl.startsWith('data:image/jpeg') || imageDataUrl.startsWith('data:image/jpg');
+  const mimeType = isJpeg ? 'image/jpeg' : 'image/png';
+  const quality = isJpeg ? 1.0 : undefined; // Max quality for JPEG, undefined for PNG (lossless)
+  
   // Load the source image
   const img = await loadImage(imageDataUrl);
 
@@ -218,9 +223,16 @@ export async function generateImages(
     const canvas = document.createElement('canvas');
     canvas.width = imageWidth;
     canvas.height = imageHeight;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { 
+      alpha: false,
+      willReadFrequently: false,
+    });
 
     if (!ctx) continue;
+
+    // Disable image smoothing for crisp output
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Draw the base image
     ctx.drawImage(img, 0, 0, imageWidth, imageHeight);
@@ -230,9 +242,9 @@ export async function generateImages(
       drawTextOnCanvas(ctx, name, area);
     });
 
-    // Convert to blob
-    const blob = await canvasToBlob(canvas);
-    const dataUrl = canvas.toDataURL('image/png');
+    // Convert to blob and dataUrl with original format and max quality
+    const blob = await canvasToBlob(canvas, mimeType, quality);
+    const dataUrl = canvas.toDataURL(mimeType, quality);
 
     results.push({ name, dataUrl, blob });
 
@@ -257,9 +269,9 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Converts canvas to blob
+ * Converts canvas to blob with specified format and quality
  */
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string = 'image/png', quality?: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) {
@@ -267,7 +279,7 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
       } else {
         reject(new Error('Failed to create blob'));
       }
-    }, 'image/png');
+    }, mimeType, quality);
   });
 }
 
